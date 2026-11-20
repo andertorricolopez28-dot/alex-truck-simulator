@@ -1,0 +1,283 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>ALEX TRUCK SIMULATOR</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;overflow:hidden;background:#9ac8df;color:white;font-family:Arial;touch-action:none}
+#game{position:fixed;inset:0}
+#top{position:fixed;top:12px;left:12px;right:12px;display:flex;justify-content:space-between;pointer-events:none}
+.panel{background:#071511dc;border:1px solid #39e6a3;border-radius:12px;padding:10px}
+#logo{font-weight:900;color:#4dffc0}
+#speed{text-align:right;font-size:25px;font-weight:bold}
+#speed small{font-size:11px}
+#buttons{position:fixed;bottom:18px;left:12px;right:12px;display:flex;justify-content:space-between;align-items:end}
+.group{display:flex;gap:8px}
+button{color:white;background:#071b17eF;border:1px solid #40e6a5;border-radius:13px;padding:14px;font-weight:bold;touch-action:none}
+.control{width:65px;height:65px;border-radius:50%;font-size:22px}
+.pedal{height:70px;width:72px;font-size:12px}
+#camera{position:fixed;top:68px;right:12px}
+#menu{position:fixed;inset:0;background:#06110ef2;display:flex;align-items:center;justify-content:center;padding:20px}
+#card{width:min(390px,100%);text-align:center}
+h1{color:#45ffb8}
+select{width:100%;padding:14px;background:#102720;color:white;border:1px solid #40e6a5;border-radius:10px;margin:12px 0}
+#start{width:100%;padding:16px;background:#087b56}
+#message{position:fixed;top:48%;left:50%;transform:translate(-50%,-50%);background:#071b17;padding:12px;border:1px solid #40e6a5;border-radius:10px;display:none}
+</style>
+</head>
+<body>
+<div id="game"></div>
+<div id="top">
+ <div class="panel"><div id="logo">ALEX TRUCK SIMULATOR</div><small id="truckName">SCANIA R</small></div>
+ <div class="panel" id="speed">0 <small>KM/H</small><br><small id="gear">MARCHA N</small></div>
+</div>
+<button id="camera">📷 CÁMARA</button>
+<div id="buttons">
+ <div class="group">
+  <button class="control" id="left">◀</button>
+  <button class="control" id="right">▶</button>
+ </div>
+ <div class="group">
+  <button class="pedal" id="brake">FRENO</button>
+  <button class="pedal" id="gas">ACELERAR</button>
+ </div>
+</div>
+<div id="message"></div>
+<div id="menu">
+ <div class="panel" id="card">
+  <h1>🚛 ALEX TRUCK</h1>
+  <p>SIMULADOR DE CAMIONES 3D</p>
+  <p>Elige tu camión brasileño:</p>
+  <select id="truck">
+   <option>Scania R</option>
+   <option>Volvo FH</option>
+   <option>Mercedes-Benz Actros</option>
+  </select>
+  <button id="start">INICIAR VIAJE</button>
+  <p><small>Prototipo 3D · Versión 1.0</small></p>
+ </div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x9ac9e2);
+scene.fog=new THREE.Fog(0x9ac9e2,100,450);
+
+const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,.1,1000);
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.shadowMap.enabled=true;
+document.getElementById('game').appendChild(renderer.domElement);
+
+scene.add(new THREE.HemisphereLight(0xffffff,0x526d43,2));
+const sun=new THREE.DirectionalLight(0xffffff,2);
+sun.position.set(-40,80,30);
+sun.castShadow=true;
+scene.add(sun);
+
+const material=(c)=>new THREE.MeshStandardMaterial({color:c,roughness:.8});
+const green=material(0x477e43);
+const asphalt=material(0x30363a);
+const white=material(0xe9e9e9);
+const black=material(0x17191b);
+const glass=new THREE.MeshStandardMaterial({color:0x244c5b,roughness:.2});
+const yellow=material(0xe5c44e);
+
+function cube(parent,w,h,d,mat,x,y,z){
+ const o=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat);
+ o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;
+ parent.add(o);return o;
+}
+function wheel(parent,x,y,z){
+ const o=new THREE.Mesh(new THREE.CylinderGeometry(.55,.55,.4,20),black);
+ o.rotation.z=Math.PI/2;o.position.set(x,y,z);o.castShadow=true;parent.add(o);
+ return o;
+}
+
+// Suelo y carretera
+cube(scene,220,.3,1200,green,0,-.35,-450);
+cube(scene,18,.15,1200,asphalt,0,-.12,-450);
+for(let z=100;z>-1050;z-=22){
+ cube(scene,.16,.03,8,yellow,0,-.02,z);
+}
+
+// Árboles y edificios
+for(let side of [-1,1]){
+ for(let z=80;z>-1000;z-=25){
+  const x=side*(16+Math.random()*35);
+  if(Math.random()>.35){
+   const trunk= new THREE.Mesh(
+    new THREE.CylinderGeometry(.22,.3,2.5,8),material(0x654329));
+   trunk.position.set(x,1,z);scene.add(trunk);
+   const crown=new THREE.Mesh(
+    new THREE.ConeGeometry(2.5,6,8),material(0x24623b));
+   crown.position.set(x,5,z);scene.add(crown);
+  }else{
+   cube(scene,5,5+Math.random()*10,5,
+    material([0xd6d0bb,0xc8b6a1,0xb6c5c8][Math.floor(Math.random()*3)]),
+    x,3,z);
+  }
+ }
+}
+
+// Camión
+const truck=new THREE.Group();
+scene.add(truck);
+let truckWheels=[];
+let cabColor=0xc62828;
+
+function buildTruck(name){
+ truck.clear();truckWheels=[];
+ cabColor=name.includes('Volvo')?0x174f9c:
+ name.includes('Mercedes')?0xe7e7e7:0xc62828;
+
+ // Chasis y remolque
+ cube(truck,2.5,.55,8,black,0,1,1);
+ cube(truck,2.85,3.2,7,white,0,3,3.6);
+ // Cabina
+ cube(truck,2.6,2.6,2.5,material(cabColor),0,2.1,-3);
+ cube(truck,2.25,1.05,.08,glass,0,2.65,-4.28);
+ cube(truck,2.4,.15,.1,black,0,1.9,-4.3);
+ cube(truck,2.65,.35,.15,black,0,.9,-4.3);
+ // Ventanas laterales
+ cube(truck,.08,1,1.2,glass,-1.32,2.6,-3);
+ cube(truck,.08,1,1.2,glass,1.32,2.6,-3);
+ // Luces
+ cube(truck,.35,.25,.1,yellow,-.9,1.5,-4.35);
+ cube(truck,.35,.25,.1,yellow,.9,1.5,-4.35);
+ // Espejos
+ for(const x of [-1.5,1.5]){
+  cube(truck,.12,.6,.12,black,x,2.5,-3.7);
+  cube(truck,.2,.25,.15,black,x*1.06,2.8,-3.7);
+ }
+ // Ruedas
+ for(const z of [-2.8,1.7,4.5]){
+  for(const x of [-1.4,1.4]){
+   const w=wheel(truck,x,.65,z);truckWheels.push(w);
+  }
+ }
+}
+buildTruck('Scania R');
+
+// Tráfico
+const cars=[];
+for(let i=0;i<7;i++){
+ const car=new THREE.Group();
+ cube(car,1.7,.7,3,material([0xe9e9e9,0x245c9d,0xbba13b][i%3]),0,.75,0);
+ cube(car,1.35,.65,1.3,glass,0,1.3,-.2);
+ for(const x of [-.8,.8])for(const z of [-.9,.9])wheel(car,x,.4,z);
+ car.position.set(i%2?3.2:-3.2,0,-70-i*100);
+ scene.add(car);cars.push(car);
+}
+
+// Panel visual de cabina
+const dashboard=new THREE.Group();
+camera.add(dashboard);
+cube(dashboard,2.6,.28,.8,black,0,-.85,-1.1);
+const steering=new THREE.Mesh(new THREE.TorusGeometry(.32,.045,8,32),black);
+steering.position.set(0,-.58,-.72);
+camera.add(steering);
+
+let speed=0,steer=0,camMode=0,playing=false;
+const input={left:false,right:false,gas:false,brake:false};
+
+function hold(id,key){
+ const el=document.getElementById(id);
+ el.addEventListener('pointerdown',e=>{e.preventDefault();input[key]=true});
+ for(const ev of ['pointerup','pointercancel','pointerleave'])
+ el.addEventListener(ev,e=>{e.preventDefault();input[key]=false});
+}
+hold('left','left');hold('right','right');
+hold('gas','gas');hold('brake','brake');
+
+document.getElementById('camera').onclick=()=>{
+ camMode=1-camMode;
+ notify(camMode?'Cámara interior':'Cámara exterior');
+};
+document.getElementById('start').onclick=()=>{
+ const name=document.getElementById('truck').value;
+ buildTruck(name);
+ document.getElementById('truckName').textContent=name.toUpperCase();
+ document.getElementById('menu').style.display='none';
+ playing=true;notify('¡Buen viaje!');
+};
+
+function notify(text){
+ const el=document.getElementById('message');
+ el.textContent=text;el.style.display='block';
+ setTimeout(()=>el.style.display='none',1400);
+}
+addEventListener('keydown',e=>{
+ if(e.key==='ArrowLeft')input.left=true;
+ if(e.key==='ArrowRight')input.right=true;
+ if(e.key==='ArrowUp')input.gas=true;
+ if(e.key==='ArrowDown')input.brake=true;
+});
+addEventListener('keyup',e=>{
+ if(e.key==='ArrowLeft')input.left=false;
+ if(e.key==='ArrowRight')input.right=false;
+ if(e.key==='ArrowUp')input.gas=false;
+ if(e.key==='ArrowDown')input.brake=false;
+});
+
+const clock=new THREE.Clock();
+function animate(){
+ requestAnimationFrame(animate);
+ const dt=Math.min(clock.getDelta(),.04);
+
+ if(playing){
+  if(input.gas)speed+=16*dt;
+  else speed-=2.5*dt;
+  if(input.brake)speed-=30*dt;
+  speed=THREE.MathUtils.clamp(speed,0,120);
+
+  if(input.left)steer+=2*dt;
+  if(input.right)steer-=2*dt;
+  if(!input.left&&!input.right)steer*=Math.pow(.05,dt);
+  steer=THREE.MathUtils.clamp(steer,-1,1);
+
+  truck.position.x+=steer*speed*.012*dt*10;
+  truck.position.x=THREE.MathUtils.clamp(truck.position.x,-5.5,5.5);
+  truck.position.z-=speed*.12*dt;
+  truck.rotation.y=steer*.12;
+  truckWheels.forEach(w=>w.rotation.x-=speed*.04*dt);
+  steering.rotation.z=-steer*.65;
+
+  cars.forEach(car=>{
+   car.position.z+=speed*.12*dt+dt*2;
+   if(car.position.z>truck.position.z+20)
+    car.position.z=truck.position.z-650-Math.random()*100;
+  });
+
+  document.getElementById('speed').innerHTML=
+   Math.round(speed)+' <small>KM/H</small><br><small id="gear">MARCHA '+(speed<1?'N':speed<30?'1':speed<60?'2':speed<90?'3':'4')+'</small>';
+ }
+
+ if(camMode===0){
+  camera.position.set(truck.position.x,truck.position.y+7,truck.position.z+14);
+  camera.lookAt(truck.position.x,2,truck.position.z-7);
+ }else{
+  camera.position.set(truck.position.x,truck.position.y+4.4,truck.position.z-2.7);
+  camera.lookAt(truck.position.x,4.2,truck.position.z-28);
+ }
+ renderer.render(scene,camera);
+}
+animate();
+
+addEventListener('resize',()=>{
+ camera.aspect=innerWidth/innerHeight;
+ camera.updateProjectionMatrix();
+ renderer.setSize(innerWidth,innerHeight);
+});
+</script>
+</body>
+</html>
